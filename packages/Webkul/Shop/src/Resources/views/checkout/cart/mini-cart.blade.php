@@ -1,10 +1,6 @@
 <!-- Mini Cart Vue Component -->
 <v-mini-cart>
-    <span
-        class="icon-cart cursor-pointer text-2xl"
-        role="button"
-        aria-label="@lang('shop::app.checkout.cart.mini-cart.shopping-cart')"
-    ></span>
+    <span class="icon-cart cursor-pointer text-2xl" role="button" aria-label="@lang('shop::app.checkout.cart.mini-cart.shopping-cart')"></span>
 </v-mini-cart>
 
 @pushOnce('scripts')
@@ -325,12 +321,13 @@
                         <div class="grid gap-2.5 px-6 max-md:px-4 max-sm:gap-1.5">
                             {!! view_render_event('bagisto.shop.checkout.mini-cart.continue_to_checkout.before') !!}
 
-                        <a
-                            href="{{ route('shop.checkout.onepage.index') }}"
+                        <button
+                            @click="sendToWhatsApp"
+                            type="button"
                             class="mx-auto block w-full cursor-pointer rounded-2xl bg-navyBlue px-11 py-4 text-center text-base font-medium text-white max-md:rounded-lg max-md:px-5 max-md:py-2"
                         >
                             Continuar en Whatsapp
-                        </a>
+                        </button>
 
                             {!! view_render_event('bagisto.shop.checkout.mini-cart.continue_to_checkout.after') !!}
 
@@ -373,15 +370,16 @@
             template: '#v-mini-cart-template',
 
             data() {
-                return  {
+                return {
                     cart: null,
 
-                    isLoading:false,
+                    isLoading: false,
 
                     displayTax: {
                         prices: "{{ core()->getConfigData('sales.taxes.shopping_cart.display_prices') }}",
                         subtotal: "{{ core()->getConfigData('sales.taxes.shopping_cart.display_subtotal') }}",
                     },
+                    whatsappNumber: "51926730944",
                 }
             },
 
@@ -414,12 +412,17 @@
 
                     qty[item.id] = quantity;
 
-                    this.$axios.put('{{ route('shop.api.checkout.cart.update') }}', { qty })
+                    this.$axios.put('{{ route('shop.api.checkout.cart.update') }}', {
+                            qty
+                        })
                         .then(response => {
                             if (response.data.message) {
                                 this.cart = response.data.data;
                             } else {
-                                this.$emitter.emit('add-flash', { type: 'warning', message: response.data.data.message });
+                                this.$emitter.emit('add-flash', {
+                                    type: 'warning',
+                                    message: response.data.data.message
+                                });
                             }
 
                             this.isLoading = false;
@@ -432,23 +435,63 @@
                             this.isLoading = true;
 
                             this.$axios.post('{{ route('shop.api.checkout.cart.destroy') }}', {
-                                '_method': 'DELETE',
-                                'cart_item_id': itemId,
-                            })
-                            .then(response => {
-                                this.cart = response.data.data;
+                                    '_method': 'DELETE',
+                                    'cart_item_id': itemId,
+                                })
+                                .then(response => {
+                                    this.cart = response.data.data;
 
-                                this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
+                                    this.$emitter.emit('add-flash', {
+                                        type: 'success',
+                                        message: response.data.message
+                                    });
 
-                                this.isLoading = false;
-                            })
-                            .catch(error => {
-                                this.$emitter.emit('add-flash', { type: 'error', message: response.data.message });
+                                    this.isLoading = false;
+                                })
+                                .catch(error => {
+                                    this.$emitter.emit('add-flash', {
+                                        type: 'error',
+                                        message: response.data.message
+                                    });
 
-                                this.isLoading = false;
-                            });
+                                    this.isLoading = false;
+                                });
                         }
                     });
+                },
+                sendToWhatsApp() {
+                    if (!this.cart || !this.cart.items || this.cart.items.length === 0) {
+                        this.$emitter.emit('add-flash', {
+                            type: 'warning',
+                            message: 'El carrito está vacío'
+                        });
+                        return;
+                    }
+
+                    // Usar emojis más simples
+                    let message = '*Hola! Quiero realizar el siguiente pedido:*\n\n';
+
+                    this.cart.items.forEach((item, index) => {
+                        message += `${index + 1}. *${item.name}*\n`;
+                        message += `   Cantidad: ${item.quantity}\n`;
+                        message += `   Precio: ${item.formatted_price}\n`;
+
+                        if (item.options && item.options.length > 0) {
+                            item.options.forEach(option => {
+                                message +=
+                                `   - ${option.attribute_name}: ${option.option_label}\n`;
+                            });
+                        }
+                        message += '\n';
+                    });
+
+                    message += `*SUBTOTAL: ${this.cart.formatted_sub_total}*\n\n`;
+                    message += 'Podrian confirmar la disponibilidad y el total final con envio?';
+
+                    const encodedMessage = encodeURIComponent(message);
+                    const whatsappUrl = `https://wa.me/${this.whatsappNumber}?text=${encodedMessage}`;
+
+                    window.open(whatsappUrl, '_blank');
                 },
             },
         });
