@@ -422,7 +422,7 @@
                                             type="submit"
                                             class="primary-button mt-5 w-full max-w-[470px] max-md:py-3 max-sm:mt-3 max-sm:rounded-lg max-sm:py-1.5"
                                             button-type="primary-button"
-                                            :title="trans('shop::app.products.view.buy-now')"
+                                            title="Comprar por Whatsapp"
                                             :disabled="! $product->isSaleable(1)"
                                             ::loading="isStoring.buyNow"
                                             @click="is_buy_now=1;"

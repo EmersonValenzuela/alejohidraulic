@@ -1,9 +1,7 @@
 <v-image-search>
-    <button
-        type="button"
+    <button type="button"
         class="icon-camera absolute top-3 flex items-center text-xl max-sm:top-2.5 ltr:right-3 ltr:pr-3 max-md:ltr:right-1.5 rtl:left-3 rtl:pl-3 max-md:rtl:left-1.5"
-        aria-label="@lang('shop::app.search.images.index.search')"
-    >
+        aria-label="@lang('shop::app.search.images.index.search')">
     </button>
 </v-image-search>
 
@@ -87,14 +85,15 @@
                  * This method will dynamically load the scripts. Because image search library
                  * only used when someone clicks or interact with the image button. This will
                  * reduce some data usage for mobile user.
-                 * 
+                 *
                  * @return {void}
                  */
                 loadLibrary() {
                     this.$shop.loadDynamicScript(
                         'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js', () => {
                             this.$shop.loadDynamicScript(
-                                'https://cdn.jsdelivr.net/npm/tensorflow-models-mobilenet-patch@2.1.1/dist/mobilenet.min.js', () => {
+                                'https://cdn.jsdelivr.net/npm/tensorflow-models-mobilenet-patch@2.1.1/dist/mobilenet.min.js',
+                                () => {
                                     this.analyzeImage();
                                 }
                             );
@@ -104,7 +103,7 @@
 
                 /**
                  * This method will analyze the image and load the sets on the bases of trained model.
-                 * 
+                 *
                  * @return {void}
                  */
                 analyzeImage() {
@@ -139,50 +138,69 @@
                                             net = await mobilenet.load();
 
                                             try {
-                                                const result = await net.classify(document.getElementById('uploaded-image-url'));
+                                                const result = await net.classify(document.getElementById(
+                                                    'uploaded-image-url'));
 
+                                                // Extraer términos en inglés
+                                                let englishTerms = [];
                                                 result.forEach(function(value) {
                                                     queryString = value.className.split(',');
-
-                                                    if (queryString.length > 1) {
-                                                        analysedResult = analysedResult.concat(queryString);
-                                                    } else {
-                                                        analysedResult.push(queryString[0]);
-                                                    }
+                                                    queryString.forEach(term => {
+                                                        englishTerms.push(term.trim());
+                                                    });
                                                 });
+
+                                                // Traducir con API gratuita
+                                                analysedResult = await translateTerms(englishTerms);
+
                                             } catch (error) {
-                                                this.$emitter.emit('add-flash', { type: 'error', message: "@lang('shop::app.search.images.index.something-went-wrong')"});
+                                                this.$emitter.emit('add-flash', {
+                                                    type: 'error',
+                                                    message: "@lang('shop::app.search.images.index.something-went-wrong')"
+                                                });
                                             }
 
                                             localStorage.searchedImageUrl = self.uploadedImageUrl;
 
-                                            queryString = localStorage.searchedTerms = analysedResult.join('_');
+                                            queryString = localStorage.searchedTerms = analysedResult.join(
+                                                '_');
 
-                                            queryString = localStorage.searchedTerms.split('_').map(term => {
+                                            queryString = localStorage.searchedTerms.split('_').map(
+                                            term => {
                                                 return term.split(' ').join('+');
                                             });
 
-                                            window.location.href = `${'{{ route('shop.search.index') }}'}?query=${queryString[0]}&image-search=1`;
+                                            window.location.href =
+                                                `${'{{ route('shop.search.index') }}'}?query=${queryString[0]}&image-search=1`;
                                         }
 
                                         app();
                                     })
                                     .catch((error) => {
-                                        this.$emitter.emit('add-flash', { type: 'error', message: "@lang('shop::app.search.images.index.something-went-wrong')"});
+                                        this.$emitter.emit('add-flash', {
+                                            type: 'error',
+                                            message: "@lang('shop::app.search.images.index.something-went-wrong')"
+                                        });
 
                                         this.isSearching = false;
                                     });
                             } else {
                                 imageInput.value = '';
 
-                                this.$emitter.emit('add-flash', { type: 'error', message: '@lang('shop::app.search.images.index.size-limit-error')'});
+                                this.$emitter.emit('add-flash', {
+                                    type: 'error',
+                                    message: '@lang('shop::app.search.images.index.size-limit-error')'
+                                });
 
                                 this.isSearching = false;
                             }
                         } else {
                             imageInput.value = '';
 
-                            this.$emitter.emit('add-flash', { type: 'error', message: '@lang('shop::app.search.images.index.only-images-allowed')'});
+                            this.$emitter.emit('add-flash', {
+                                type: 'error',
+                                message: '@lang('shop::app.search.images.index.only-images-allowed')'
+                            });
 
                             this.isSearching = false;
                         }
@@ -190,5 +208,32 @@
                 },
             },
         });
+        async function translateTerms(terms) {
+            const translatedTerms = [];
+
+            for (const term of terms) {
+                try {
+                    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(term)}&langpair=en|es`;
+
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (data.responseData && data.responseData.translatedText) {
+                        translatedTerms.push(data.responseData.translatedText);
+                    } else {
+                        translatedTerms.push(term); // Fallback al original
+                    }
+
+                    // Pausa para no saturar la API
+                    await new Promise(resolve => setTimeout(resolve, 200));
+
+                } catch (error) {
+                    console.error('Error traduciendo:', term, error);
+                    translatedTerms.push(term); // Fallback
+                }
+            }
+
+            return translatedTerms;
+        }
     </script>
 @endPushOnce
